@@ -1,0 +1,17 @@
+# ── Worker image with Playwright ────────────────────────────────────────────────
+FROM mcr.microsoft.com/playwright:v1.55.0-noble
+
+WORKDIR /app
+
+# Install Node.js deps (Playwright base already has Node)
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy source
+COPY . .
+
+# Build TypeScript to JS for worker
+RUN npx tsc --noEmit
+
+# Use tsx for running TypeScript worker directly
+CMD ["npx", "tsx", "src/workers/index.ts"]
