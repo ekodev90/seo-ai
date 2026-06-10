@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const session = await auth.api.getSession({
-    headers: request.headers,
+    headers: await headers(),
   });
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/sign-in") ||
+  const isAuthRoute =
+    request.nextUrl.pathname.startsWith("/sign-in") ||
     request.nextUrl.pathname.startsWith("/sign-up");
 
   if (!session?.user) {
