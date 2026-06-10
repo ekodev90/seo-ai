@@ -9,6 +9,7 @@ import { AddLinkForm } from "./add-link-form";
 import { LinkStatusPill } from "./link-status-pill";
 import { KeywordsSection } from "./keywords-section";
 import { RankChart } from "@/components/charts/rank-chart";
+import { AuditSection } from "./audit-section";
 
 export default async function SiteDetailPage({
   params,
@@ -38,6 +39,14 @@ export default async function SiteDetailPage({
     .from(schema.keywords)
     .where(and(eq(schema.keywords.websiteId, siteId), eq(schema.keywords.isActive, true)))
     .orderBy(schema.keywords.createdAt);
+
+  // Fetch audits
+  const audits = await db
+    .select()
+    .from(schema.audits)
+    .where(eq(schema.audits.websiteId, siteId))
+    .orderBy(desc(schema.audits.createdAt))
+    .limit(10);
 
   // Fetch rank snapshots for chart (last 30 days, first keyword)
   let rankData: Array<{ date: string; mobile: number | null; desktop: number | null; aiOverviewPresent: boolean }> = [];
@@ -164,7 +173,7 @@ export default async function SiteDetailPage({
       </div>
 
       {/* Keywords + Rank */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
           <KeywordsSection siteId={siteId} keywords={keywords.map(k => ({ id: k.id, phrase: k.phrase, source: k.source }))} />
         </div>
@@ -177,6 +186,21 @@ export default async function SiteDetailPage({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Audits */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+        <AuditSection
+          siteId={siteId}
+          audits={audits.map(a => ({
+            id: a.id,
+            kind: a.kind,
+            status: a.status,
+            score: a.score,
+            summary: a.summary as { totalFindings: number; critical: number; warning: number; info: number; pass: number } | null,
+            createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : String(a.createdAt),
+          }))}
+        />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { connection } from "@/lib/queues";
 import { processLinkCheck } from "./processors/link-check";
 import { processRankCheck } from "./processors/rank-check";
 import { processGscSync } from "./processors/gsc-sync";
+import { processPsiAudit } from "./processors/psi-audit";
 import { setupSchedules } from "./schedule";
 
 // ── Workers ────────────────────────────────────────────────────────────────────
@@ -33,6 +34,12 @@ const gscSyncWorker = new Worker(
   "gsc.sync",
   processGscSync,
   { connection, concurrency: 1 }
+);
+
+const psiAuditWorker = new Worker(
+  "psi.audit",
+  processPsiAudit,
+  { connection, concurrency: 2 }
 );
 
 // ── Event Logging ──────────────────────────────────────────────────────────────
@@ -62,7 +69,7 @@ async function main() {
   await setupSchedules();
 
   console.log("✅ SEO-AI Worker ready");
-  console.log("   Queues: linkcheck, rank, gsc.sync");
+  console.log("   Queues: linkcheck, rank, gsc.sync, psi.audit");
 }
 
 main().catch((err) => {
@@ -76,5 +83,6 @@ process.on("SIGTERM", async () => {
   await linkCheckWorker.close();
   await rankCheckWorker.close();
   await gscSyncWorker.close();
+  await psiAuditWorker.close();
   process.exit(0);
 });
