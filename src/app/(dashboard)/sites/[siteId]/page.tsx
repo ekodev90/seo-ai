@@ -10,6 +10,7 @@ import { LinkStatusPill } from "./link-status-pill";
 import { KeywordsSection } from "./keywords-section";
 import { RankChart } from "@/components/charts/rank-chart";
 import { AuditSection } from "./audit-section";
+import { CompareSection } from "./compare-section";
 
 export default async function SiteDetailPage({
   params,
@@ -47,6 +48,19 @@ export default async function SiteDetailPage({
     .where(eq(schema.audits.websiteId, siteId))
     .orderBy(desc(schema.audits.createdAt))
     .limit(10);
+
+  // Fetch competitors + comparisons
+  const competitors = await db
+    .select()
+    .from(schema.competitors)
+    .where(eq(schema.competitors.websiteId, siteId));
+
+  const comparisons = await db
+    .select()
+    .from(schema.comparisons)
+    .where(eq(schema.comparisons.websiteId, siteId))
+    .orderBy(desc(schema.comparisons.createdAt))
+    .limit(5);
 
   // Fetch rank snapshots for chart (last 30 days, first keyword)
   let rankData: Array<{ date: string; mobile: number | null; desktop: number | null; aiOverviewPresent: boolean }> = [];
@@ -199,6 +213,20 @@ export default async function SiteDetailPage({
             score: a.score,
             summary: a.summary as { totalFindings: number; critical: number; warning: number; info: number; pass: number } | null,
             createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : String(a.createdAt),
+          }))}
+        />
+      </div>
+
+      {/* Competitors + Comparisons */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+        <CompareSection
+          siteId={siteId}
+          competitors={competitors.map(c => ({ id: c.id, url: c.url, label: c.label }))}
+          comparisons={comparisons.map(c => ({
+            id: c.id,
+            metrics: c.metrics as Record<string, unknown>,
+            aiReportId: c.aiReportId,
+            createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : String(c.createdAt),
           }))}
         />
       </div>
