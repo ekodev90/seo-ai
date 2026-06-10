@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { siteService } from "@/server/services/siteService";
-import { alternativeLinks } from "@/db/schema";
+import { JobActivity } from "@/components/ui/job-activity";
 
 interface SiteWithLinks {
   id: string;
@@ -100,6 +100,14 @@ export default async function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* Job Activity */}
+      <div className="mt-12">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+          <JobActivity />
+        </div>
+      </div>
     </div>
   );
 }

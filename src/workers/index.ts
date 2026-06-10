@@ -49,22 +49,41 @@ const compareWorker = new Worker(
   { connection, concurrency: 2 }
 );
 
-// ── Event Logging ──────────────────────────────────────────────────────────────
+// ── Event Logging + Job Runs ──────────────────────────────────────────────────
+
+async function logJobRun(jobName: string, status: string, message?: string) {
+  try {
+    const { db, schema } = await import("@/db");
+    await db.insert(schema.jobRuns).values({
+      jobName,
+      status,
+      message: message ?? null,
+      startedAt: new Date(),
+      completedAt: status !== "started" ? new Date() : null,
+    });
+  } catch {
+    // Don't let logging failure crash the worker
+  }
+}
 
 linkCheckWorker.on("completed", (job) => {
   console.log(`[linkcheck] ✓ ${job.name}`);
+  logJobRun(`linkcheck:${job.name}`, "completed");
 });
 
 linkCheckWorker.on("failed", (job, err) => {
   console.error(`[linkcheck] ✗ ${job?.name ?? "unknown"}: ${err.message}`);
+  logJobRun(`linkcheck:${job?.name ?? "unknown"}`, "failed", err.message);
 });
 
 rankCheckWorker.on("completed", (job) => {
   console.log(`[rank] ✓ ${job.name}`);
+  logJobRun(`rank:${job.name}`, "completed");
 });
 
 rankCheckWorker.on("failed", (job, err) => {
   console.error(`[rank] ✗ ${job?.name ?? "unknown"}: ${err.message}`);
+  logJobRun(`rank:${job?.name ?? "unknown"}`, "failed", err.message);
 });
 
 // ── Scheduler ──────────────────────────────────────────────────────────────────
