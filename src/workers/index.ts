@@ -8,6 +8,8 @@
 import { Worker } from "bullmq";
 import { connection } from "@/lib/queues";
 import { processLinkCheck } from "./processors/link-check";
+import { processRankCheck } from "./processors/rank-check";
+import { processGscSync } from "./processors/gsc-sync";
 import { setupSchedules } from "./schedule";
 
 // ── Workers ────────────────────────────────────────────────────────────────────
@@ -21,20 +23,15 @@ const linkCheckWorker = new Worker("linkcheck", processLinkCheck, {
   },
 });
 
-// Placeholder workers for future phases — registered but no-op until implemented
 const rankCheckWorker = new Worker(
   "rank",
-  async (job) => {
-    console.log(`[rank] job ${job.id} — processor not yet implemented`);
-  },
+  processRankCheck,
   { connection, concurrency: 1, limiter: { max: 1, duration: 120_000 } }
 );
 
 const gscSyncWorker = new Worker(
   "gsc.sync",
-  async (job) => {
-    console.log(`[gsc.sync] job ${job.id} — processor not yet implemented`);
-  },
+  processGscSync,
   { connection, concurrency: 1 }
 );
 

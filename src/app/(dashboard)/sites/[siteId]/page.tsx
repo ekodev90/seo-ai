@@ -2,11 +2,13 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { siteService } from "@/server/services/siteService";
 import Link from "next/link";
 import { AddLinkForm } from "./add-link-form";
 import { LinkStatusPill } from "./link-status-pill";
+import { KeywordsSection } from "./keywords-section";
+import { RankChart } from "@/components/charts/rank-chart";
 
 export default async function SiteDetailPage({
   params,
@@ -30,6 +32,54 @@ export default async function SiteDetailPage({
     .from(schema.alternativeLinks)
     .where(eq(schema.alternativeLinks.websiteId, siteId))
     .orderBy(schema.alternativeLinks.createdAt);
+
+  const keywords = await db
+    .select()
+    .from(schema.keywords)
+    .where(and(eq(schema.keywords.websiteId, siteId), eq(schema.keywords.isActive, true)))
+    .orderBy(schema.keywords.createdAt);
+
+  // Fetch rank snapshots for chart (last 30 days, first keyword)
+  let rankData: Array<{ date: string; mobile: number | null; desktop: number | null; aiOverviewPresent: boolean }> = [];
+  if (keywords.length > 0) {
+    const firstKeywordId = keywords[0].id;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const snapshots = await db
+      .select()
+      .from(schema.rankSnapshots)
+      .where(
+        and(
+          eq(schema.rankSnapshots.keywordId, firstKeywordId),
+          // capturedAt is a date column, filter via JS
+        )
+      )
+      .orderBy(desc(schema.rankSnapshots.capturedAt))
+      .limit(60);
+
+    // Group by date
+    const byDate = new Map<string, { mobile: number | null; desktop: number | null; aiOverview: boolean }>();
+    for (const s of snapshots) {
+      const dateStr = typeof s.capturedAt === "string" ? s.capturedAt : String(s.capturedAt).split("T")[0];
+      if (!byDate.has(dateStr)) {
+        byDate.set(dateStr, { mobile: null, desktop: null, aiOverview: false });
+      }
+      const entry = byDate.get(dateStr)!;
+      if (s.device === "mobile") entry.mobile = s.position;
+      if (s.device === "desktop") entry.desktop = s.position;
+      if (s.aiOverviewPresent) entry.aiOverview = true;
+    }
+
+    rankData = Array.from(byDate.entries())
+      .map(([date, d]) => ({
+        date,
+        mobile: d.mobile,
+        desktop: d.desktop,
+        aiOverviewPresent: d.aiOverview,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
 
   return (
     <div>
@@ -67,7 +117,7 @@ export default async function SiteDetailPage({
       </div>
 
       {/* Alternative Links */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Alternative Links
@@ -111,6 +161,22 @@ export default async function SiteDetailPage({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Keywords + Rank */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+          <KeywordsSection siteId={siteId} keywords={keywords.map(k => ({ id: k.id, phrase: k.phrase, source: k.source }))} />
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+          {rankData.length > 0 ? (
+            <RankChart data={rankData} keyword={keywords[0]?.phrase ?? ""} />
+          ) : (
+            <div className="text-center py-8 text-sm text-gray-400">
+              No rank data yet. Add keywords and run rank checks to see charts.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
